@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -8,28 +8,10 @@ import { Label } from "@/components/ui/label";
 import { ProjectGenerator } from "@/components/ProjectGenerator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useScratchApi, ScratchProject } from "@/hooks/useScratchApi";
+import Icon from "@/components/ui/icon";
 
-// Примеры готовых проектов
-const SAMPLE_PROJECTS = [
-  {
-    id: 1,
-    title: "Игра-арканоид",
-    description: "Классическая игра с управлением мышью",
-    url: "https://scratch.mit.edu/projects/105500895/",
-    image: "https://images.unsplash.com/photo-1615059042472-77a39dda8094?q=80&w=1469&auto=format&fit=crop",
-    platform: "scratch"
-  },
-  {
-    id: 2,
-    title: "Анимированная история",
-    description: "Интерактивный рассказ с персонажами",
-    url: "https://scratch.mit.edu/projects/180161806/",
-    image: "https://images.unsplash.com/photo-1628373383885-4be0bc0172fa?w=500&auto=format&fit=crop",
-    platform: "scratch"
-  }
-];
-
-// Реальные ссылки на проекты
+// Предопределенные ссылки для разных типов проектов
 const PROJECT_URLS = {
   scratch: {
     game: "https://scratch.mit.edu/projects/editor/?tutorial=getStarted",
@@ -56,9 +38,29 @@ const Index = () => {
     description: string; 
     url: string; 
     image?: string;
+    id?: number;
   }>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [featuredProjects, setFeaturedProjects] = useState<ScratchProject[]>([]);
+
+  // Используем хук для работы с API Scratch
+  const { 
+    searchProjects, 
+    getFeaturedProjects, 
+    loading: apiLoading, 
+    error: apiError 
+  } = useScratchApi();
+
+  // При монтировании компонента загружаем популярные проекты
+  useEffect(() => {
+    const loadFeaturedProjects = async () => {
+      const projects = await getFeaturedProjects(4);
+      setFeaturedProjects(projects);
+    };
+    
+    loadFeaturedProjects();
+  }, [getFeaturedProjects]);
 
   // Определяет тип проекта на основе запроса
   const determineProjectType = (promptText: string) => {
@@ -75,40 +77,55 @@ const Index = () => {
     return "default";
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (!prompt) return;
     
     setIsLoading(true);
     
-    // Определяем тип проекта на основе запроса
-    const projectType = determineProjectType(prompt);
-    
-    // Получаем URL для конкретного типа проекта и платформы
-    const projectUrl = PROJECT_URLS[platform as keyof typeof PROJECT_URLS][
-      projectType as keyof typeof PROJECT_URLS.scratch
-    ];
-    
-    // Имитация создания проекта с небольшой задержкой
-    setTimeout(() => {
-      // Создаем новый проект
-      const newProject = {
-        title: `${prompt.slice(0, 20)}${prompt.length > 20 ? '...' : ''}`,
-        description: `Проект ${platform === 'scratch' ? 'Scratch' : 'TurboWarp'} создан на основе запроса: ${prompt}. Включает ${includeSprites ? 'спрайты, ' : ''}${includeBackgrounds ? 'фоны, ' : ''}${includeMusic ? 'музыку' : ''}`,
-        url: projectUrl,
-        image: platform === 'scratch' 
-          ? "https://images.unsplash.com/photo-1633356122102-3fe601e05bd2?w=500&auto=format&fit=crop" 
-          : "https://images.unsplash.com/photo-1536148935331-408321065b18?w=500&auto=format&fit=crop"
-      };
+    try {
+      // Ищем существующие проекты по запросу в API Scratch
+      const searchResults = await searchProjects(prompt, 5);
       
-      setProjectData(newProject);
+      if (searchResults.length > 0) {
+        // Берем первый найденный проект как образец
+        const sampleProject = searchResults[0];
+        
+        // Создаем новый проект на основе найденного
+        const newProject = {
+          title: `${prompt.slice(0, 20)}${prompt.length > 20 ? '...' : ''}`,
+          description: `Проект создан на основе "${sampleProject.title}". ${sampleProject.description || ''}`,
+          url: platform === 'scratch' 
+            ? `https://scratch.mit.edu/projects/${sampleProject.id}/editor` 
+            : `https://turbowarp.org/${sampleProject.id}/editor`,
+          image: sampleProject.thumbnail_url || undefined,
+          id: sampleProject.id
+        };
+        
+        setProjectData(newProject);
+        setIsSuccess(true);
+      } else {
+        // Если проекты не найдены, используем предопределенные шаблоны
+        const projectType = determineProjectType(prompt);
+        const projectUrl = PROJECT_URLS[platform as keyof typeof PROJECT_URLS][
+          projectType as keyof typeof PROJECT_URLS.scratch
+        ];
+        
+        const newProject = {
+          title: `${prompt.slice(0, 20)}${prompt.length > 20 ? '...' : ''}`,
+          description: `Проект ${platform === 'scratch' ? 'Scratch' : 'TurboWarp'} создан на основе запроса: ${prompt}. Включает ${includeSprites ? 'спрайты, ' : ''}${includeBackgrounds ? 'фоны, ' : ''}${includeMusic ? 'музыку' : ''}`,
+          url: projectUrl,
+          image: "https://images.unsplash.com/photo-1633356122102-3fe601e05bd2?w=500&auto=format&fit=crop"
+        };
+        
+        setProjectData(newProject);
+        setIsSuccess(true);
+      }
+    } catch (error) {
+      console.error('Ошибка при создании проекта:', error);
+      alert('Произошла ошибка при создании проекта. Пожалуйста, попробуйте еще раз.');
+    } finally {
       setIsLoading(false);
-      setIsSuccess(true);
-      
-      // Показываем уведомление об успешном создании проекта
-      setTimeout(() => {
-        alert("Проект успешно создан! Теперь вы можете открыть его и начать работу.");
-      }, 300);
-    }, 1500);
+    }
   };
 
   const openProject = (url: string) => {
@@ -120,8 +137,14 @@ const Index = () => {
       <div className="max-w-4xl mx-auto">
         <header className="text-center mb-10">
           <h1 className="text-4xl font-bold text-purple-800 mb-3">Генератор проектов Scratch/TurboWarp</h1>
-          <p className="text-xl text-gray-600">Создавайте уникальные проекты по вашему запросу</p>
+          <p className="text-xl text-gray-600">Создавайте уникальные проекты по вашему запросу с использованием API Scratch</p>
         </header>
+
+        {apiError && (
+          <div className="mb-4 p-4 bg-red-100 border border-red-200 rounded-md text-red-800">
+            Ошибка API Scratch: {apiError}
+          </div>
+        )}
 
         {isSuccess && (
           <div className="mb-4 p-4 bg-green-100 border border-green-200 rounded-md text-green-800">
@@ -200,10 +223,10 @@ const Index = () => {
                   <Button 
                     onClick={handleGenerate} 
                     className="w-full" 
-                    disabled={!prompt || isLoading}
+                    disabled={isLoading || apiLoading}
                     size="lg"
                   >
-                    {isLoading ? "Генерация..." : "Сгенерировать проект"}
+                    {isLoading || apiLoading ? "Поиск и создание проекта..." : "Сгенерировать проект"}
                   </Button>
                 </div>
               </CardContent>
@@ -215,34 +238,57 @@ const Index = () => {
           <TabsContent value="examples">
             <Card>
               <CardHeader>
-                <CardTitle>Примеры готовых проектов</CardTitle>
-                <CardDescription>Изучите что можно создать с помощью генератора</CardDescription>
+                <CardTitle>Популярные проекты Scratch</CardTitle>
+                <CardDescription>Реальные проекты из API Scratch</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-6 md:grid-cols-2">
-                  {SAMPLE_PROJECTS.map(project => (
-                    <div key={project.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                      <h3 className="font-bold text-lg mb-2">{project.title}</h3>
-                      <p className="mb-3 text-gray-600">{project.description}</p>
-                      <div 
-                        className="aspect-video bg-gray-200 rounded mb-3 flex items-center justify-center overflow-hidden"
-                        style={{
-                          backgroundImage: `url(${project.image})`,
-                          backgroundSize: 'cover',
-                          backgroundPosition: 'center'
-                        }}
-                      >
+                {apiLoading ? (
+                  <div className="text-center py-8">
+                    <Icon name="Loader" className="animate-spin mx-auto mb-4 text-purple-600" size={32} />
+                    <p>Загрузка проектов из API Scratch...</p>
+                  </div>
+                ) : (
+                  <div className="grid gap-6 md:grid-cols-2">
+                    {featuredProjects.length > 0 ? (
+                      featuredProjects.map(project => (
+                        <div key={project.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                          <h3 className="font-bold text-lg mb-2">{project.title}</h3>
+                          <p className="mb-3 text-gray-600">{project.description || 'Нет описания'}</p>
+                          <div 
+                            className="aspect-video bg-gray-200 rounded mb-3 flex items-center justify-center overflow-hidden"
+                            style={{
+                              backgroundImage: project.thumbnail_url ? `url(${project.thumbnail_url})` : undefined,
+                              backgroundSize: 'cover',
+                              backgroundPosition: 'center'
+                            }}
+                          >
+                            {!project.thumbnail_url && (
+                              <span className="text-gray-400">Нет изображения</span>
+                            )}
+                          </div>
+                          <Button 
+                            variant="outline" 
+                            className="w-full"
+                            onClick={() => openProject(`https://scratch.mit.edu/projects/${project.id}`)}
+                          >
+                            Открыть проект
+                          </Button>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="col-span-2 text-center py-8">
+                        <p>Проекты не найдены или произошла ошибка загрузки.</p>
+                        <Button 
+                          variant="outline" 
+                          className="mt-4"
+                          onClick={() => getFeaturedProjects(4).then(setFeaturedProjects)}
+                        >
+                          Попробовать еще раз
+                        </Button>
                       </div>
-                      <Button 
-                        variant="outline" 
-                        className="w-full"
-                        onClick={() => openProject(project.url)}
-                      >
-                        Открыть проект
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
