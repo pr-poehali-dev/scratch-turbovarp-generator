@@ -8,10 +8,19 @@ interface ProjectGeneratorProps {
     title: string;
     description: string;
     url: string;
+    image?: string;
   };
 }
 
 export const ProjectGenerator = ({ projectData }: ProjectGeneratorProps) => {
+  // Функция для открытия проекта в новой вкладке
+  const openProject = () => {
+    // Гарантируем, что URL существует и имеет правильный формат
+    if (projectData.url) {
+      window.open(projectData.url, '_blank', 'noopener,noreferrer');
+    }
+  };
+
   return (
     <Card className="mt-8 border-2 border-green-200 animate-fade-in">
       <CardHeader className="bg-gradient-to-r from-green-50 to-blue-50">
@@ -21,18 +30,28 @@ export const ProjectGenerator = ({ projectData }: ProjectGeneratorProps) => {
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-6">
-        <div className="aspect-video bg-gray-100 rounded-md mb-4 p-4 flex items-center justify-center border">
-          <div className="text-center">
-            <Icon name="Code" size={48} className="mx-auto mb-3 text-purple-400" />
-            <p className="text-gray-500">Предпросмотр проекта</p>
-          </div>
+        <div 
+          className="aspect-video rounded-md mb-4 flex items-center justify-center border overflow-hidden"
+          style={{
+            backgroundImage: projectData.image ? `url(${projectData.image})` : undefined,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundColor: !projectData.image ? '#f1f5f9' : undefined
+          }}
+        >
+          {!projectData.image && (
+            <div className="text-center">
+              <Icon name="Code" size={48} className="mx-auto mb-3 text-purple-400" />
+              <p className="text-gray-500">Предпросмотр проекта</p>
+            </div>
+          )}
         </div>
         <p className="text-gray-700">{projectData.description}</p>
       </CardContent>
       <CardFooter className="flex gap-4 flex-wrap">
         <Button 
           className="flex-1" 
-          onClick={() => window.open(projectData.url, '_blank')}
+          onClick={openProject}
         >
           <Icon name="ExternalLink" className="mr-2 h-4 w-4" />
           Открыть проект
