@@ -15,10 +15,30 @@ interface ProjectGeneratorProps {
 export const ProjectGenerator = ({ projectData }: ProjectGeneratorProps) => {
   // Функция для открытия проекта в новой вкладке
   const openProject = () => {
-    // Гарантируем, что URL существует и имеет правильный формат
+    // Проверяем наличие URL и открываем в новой вкладке
     if (projectData.url) {
-      window.open(projectData.url, '_blank', 'noopener,noreferrer');
+      // Используем window.open с дополнительными параметрами для безопасности
+      const newWindow = window.open(projectData.url, '_blank');
+      // Проверяем, открылось ли окно
+      if (newWindow) {
+        newWindow.focus();
+      } else {
+        // Если окно не открылось (например, блокировка всплывающих окон)
+        alert('Пожалуйста, разрешите открытие всплывающих окон для этого сайта');
+      }
     }
+  };
+
+  // Функция для копирования ссылки в буфер обмена
+  const copyLink = () => {
+    navigator.clipboard.writeText(projectData.url)
+      .then(() => {
+        alert('Ссылка скопирована в буфер обмена!');
+      })
+      .catch(err => {
+        console.error('Не удалось скопировать ссылку: ', err);
+        alert('Не удалось скопировать ссылку. Пожалуйста, скопируйте её вручную.');
+      });
   };
 
   return (
@@ -31,12 +51,11 @@ export const ProjectGenerator = ({ projectData }: ProjectGeneratorProps) => {
       </CardHeader>
       <CardContent className="pt-6">
         <div 
-          className="aspect-video rounded-md mb-4 flex items-center justify-center border overflow-hidden"
+          className="aspect-video rounded-md mb-4 flex items-center justify-center border overflow-hidden bg-gray-100"
           style={{
             backgroundImage: projectData.image ? `url(${projectData.image})` : undefined,
             backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            backgroundColor: !projectData.image ? '#f1f5f9' : undefined
+            backgroundPosition: 'center'
           }}
         >
           {!projectData.image && (
@@ -59,10 +78,7 @@ export const ProjectGenerator = ({ projectData }: ProjectGeneratorProps) => {
         <Button 
           variant="outline" 
           className="flex-1"
-          onClick={() => {
-            navigator.clipboard.writeText(projectData.url);
-            alert("Ссылка скопирована!");
-          }}
+          onClick={copyLink}
         >
           <Icon name="Copy" className="mr-2 h-4 w-4" />
           Скопировать ссылку

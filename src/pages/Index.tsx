@@ -8,8 +8,6 @@ import { Label } from "@/components/ui/label";
 import { ProjectGenerator } from "@/components/ProjectGenerator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Toast } from "@/components/ui/toast";
-import { useToast } from "@/hooks/use-toast";
 
 // Примеры готовых проектов
 const SAMPLE_PROJECTS = [
@@ -31,31 +29,19 @@ const SAMPLE_PROJECTS = [
   }
 ];
 
-// Настоящие шаблоны проектов для разных запросов
-const PROJECT_TEMPLATES = {
-  game: {
-    scratch: "https://scratch.mit.edu/projects/104",
-    turbowarp: "https://turbowarp.org/104/editor"
+// Реальные ссылки на проекты
+const PROJECT_URLS = {
+  scratch: {
+    game: "https://scratch.mit.edu/projects/editor/?tutorial=getStarted",
+    animation: "https://scratch.mit.edu/projects/editor/?tutorial=animate-a-name",
+    story: "https://scratch.mit.edu/projects/editor/?tutorial=create-a-story",
+    default: "https://scratch.mit.edu/projects/editor/"
   },
-  animation: {
-    scratch: "https://scratch.mit.edu/projects/73",
-    turbowarp: "https://turbowarp.org/73/editor"
-  },
-  story: {
-    scratch: "https://scratch.mit.edu/projects/180161806",
-    turbowarp: "https://turbowarp.org/180161806/editor"
-  },
-  music: {
-    scratch: "https://scratch.mit.edu/projects/51",
-    turbowarp: "https://turbowarp.org/51/editor"
-  },
-  art: {
-    scratch: "https://scratch.mit.edu/projects/177",
-    turbowarp: "https://turbowarp.org/177/editor"
-  },
-  default: {
-    scratch: "https://scratch.mit.edu/projects/editor/",
-    turbowarp: "https://turbowarp.org/editor"
+  turbowarp: {
+    game: "https://turbowarp.org/editor?tutorial=getStarted",
+    animation: "https://turbowarp.org/editor?tutorial=animate-a-name",
+    story: "https://turbowarp.org/editor?tutorial=create-a-story",
+    default: "https://turbowarp.org/editor"
   }
 };
 
@@ -72,7 +58,7 @@ const Index = () => {
     image?: string;
   }>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
+  const [isSuccess, setIsSuccess] = useState(false);
 
   // Определяет тип проекта на основе запроса
   const determineProjectType = (promptText: string) => {
@@ -84,10 +70,6 @@ const Index = () => {
       return "animation";
     } else if (promptText.includes("истор") || promptText.includes("рассказ") || promptText.includes("сказк")) {
       return "story";
-    } else if (promptText.includes("музык") || promptText.includes("звук") || promptText.includes("песн")) {
-      return "music";
-    } else if (promptText.includes("рисов") || promptText.includes("арт") || promptText.includes("картин")) {
-      return "art";
     }
     
     return "default";
@@ -101,36 +83,31 @@ const Index = () => {
     // Определяем тип проекта на основе запроса
     const projectType = determineProjectType(prompt);
     
-    // Реальная ссылка на проект на основе типа и платформы
-    const projectUrl = PROJECT_TEMPLATES[projectType][platform as keyof typeof PROJECT_TEMPLATES.default];
+    // Получаем URL для конкретного типа проекта и платформы
+    const projectUrl = PROJECT_URLS[platform as keyof typeof PROJECT_URLS][
+      projectType as keyof typeof PROJECT_URLS.scratch
+    ];
     
-    // Параметры запроса для добавления к URL
-    const queryParams = new URLSearchParams();
-    
-    // Добавляем динамические параметры к URL
-    if (includeSprites) queryParams.append("sprites", "true");
-    if (includeBackgrounds) queryParams.append("backgrounds", "true");
-    if (includeMusic) queryParams.append("music", "true");
-    
-    // Формируем финальный URL с параметрами
-    const finalUrl = projectUrl + (projectUrl.includes("?") ? "&" : "?") + queryParams.toString();
-    
-    // Имитируем процесс создания проекта
+    // Имитация создания проекта с небольшой задержкой
     setTimeout(() => {
+      // Создаем новый проект
       const newProject = {
         title: `${prompt.slice(0, 20)}${prompt.length > 20 ? '...' : ''}`,
-        description: `Проект ${platform === 'scratch' ? 'Scratch' : 'TurboWarp'} создан на основе запроса: ${prompt}`,
-        url: finalUrl,
-        image: `https://images.unsplash.com/photo-${Math.floor(Math.random() * 1000000000)}?w=500&auto=format`
+        description: `Проект ${platform === 'scratch' ? 'Scratch' : 'TurboWarp'} создан на основе запроса: ${prompt}. Включает ${includeSprites ? 'спрайты, ' : ''}${includeBackgrounds ? 'фоны, ' : ''}${includeMusic ? 'музыку' : ''}`,
+        url: projectUrl,
+        image: platform === 'scratch' 
+          ? "https://images.unsplash.com/photo-1633356122102-3fe601e05bd2?w=500&auto=format&fit=crop" 
+          : "https://images.unsplash.com/photo-1536148935331-408321065b18?w=500&auto=format&fit=crop"
       };
       
       setProjectData(newProject);
       setIsLoading(false);
+      setIsSuccess(true);
       
-      toast({
-        title: "Проект создан!",
-        description: "Вы можете открыть его и начать редактирование",
-      });
+      // Показываем уведомление об успешном создании проекта
+      setTimeout(() => {
+        alert("Проект успешно создан! Теперь вы можете открыть его и начать работу.");
+      }, 300);
     }, 1500);
   };
 
@@ -145,6 +122,12 @@ const Index = () => {
           <h1 className="text-4xl font-bold text-purple-800 mb-3">Генератор проектов Scratch/TurboWarp</h1>
           <p className="text-xl text-gray-600">Создавайте уникальные проекты по вашему запросу</p>
         </header>
+
+        {isSuccess && (
+          <div className="mb-4 p-4 bg-green-100 border border-green-200 rounded-md text-green-800">
+            Проект успешно создан! Вы можете открыть его и начать работу.
+          </div>
+        )}
 
         <Tabs defaultValue="generator" className="w-full">
           <TabsList className="grid grid-cols-2 mb-8">
